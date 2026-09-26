@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
 import { X, ShoppingCart, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import { formatPrice } from '@/lib/format'
@@ -22,12 +23,59 @@ interface CartDrawerProps {
 export function CartDrawer({ open, onClose, restaurant }: CartDrawerProps) {
   const router = useRouter()
   const { cart, removeItem, incrementItem, decrementItem, subtotal } = useCartStore()
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = useRef(0)
+  const drawerRef = useRef<HTMLDivElement>(null)
 
   const items = cart?.items ?? []
   const sub = subtotal()
   const tax = Math.round((sub * restaurant.taxRate) / 10000)
   const delivery = cart?.orderType === 'DELIVERY' ? restaurant.deliveryFee : 0
   const total = sub + tax + delivery
+
+  // Reset drag state when drawer opens/closes
+  useEffect(() => {
+    if (!open) {
+      setDragOffset(0)
+      setIsDragging(false)
+    }
+  }, [open])
+
+  function handleTouchStart(e: React.TouchEvent) {
+    // Only allow drag from handle area or header
+    const target = e.target as HTMLElement
+    const isHandle = target.closest('[data-drawer-handle]')
+    const isHeader = target.closest('[data-drawer-header]')
+    if (!isHandle && !isHeader) return
+
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!isDragging) return
+
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+
+    // Only allow downward drag
+    if (diff > 0) {
+      setDragOffset(diff)
+    }
+  }
+
+  function handleTouchEnd() {
+    if (!isDragging) return
+    setIsDragging(false)
+
+    // Close if dragged down more than 100px
+    if (dragOffset > 100) {
+      onClose()
+    }
+
+    setDragOffset(0)
+  }
 
   function handleCheckout() {
     onClose()
@@ -40,25 +88,37 @@ export function CartDrawer({ open, onClose, restaurant }: CartDrawerProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
+        style={{ opacity: open ? 1 : 0 }}
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Drawer */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col"
+        ref={drawerRef}
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col transition-transform duration-300 ease-out"
+        style={{
+          transform: `translateY(${dragOffset}px)`,
+          transition: isDragging ? 'none' : 'transform 300ms ease-out',
+        }}
         role="dialog"
         aria-modal="true"
         aria-label="Your cart"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
+        <div className="flex justify-center pt-3 pb-1" data-drawer-handle>
+          <div className="w-10 h-1 rounded-full bg-gray-300 cursor-grab active:cursor-grabbing" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div 
+          className="flex items-center justify-between px-4 py-3 border-b border-gray-100"
+          data-drawer-header
+        >
           <div className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-gray-700" />
             <h2 className="font-semibold text-gray-900">Your order</h2>
@@ -84,7 +144,7 @@ export function CartDrawer({ open, onClose, restaurant }: CartDrawerProps) {
           ) : (
             <ul className="space-y-3 py-2">
               {items.map((item) => (
-                <li key={item.productId} className="flex items-start gap-3">
+                <li key={item.productId} className="flex items-start gap-3 animate-fade-in-up">
                   {item.imageUrl && (
                     <Image
                       src={item.imageUrl}
@@ -101,7 +161,7 @@ export function CartDrawer({ open, onClose, restaurant }: CartDrawerProps) {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => decrementItem(item.productId)}
-                      className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-200 text-sm font-bold"
+                      className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-200 text-sm font-bold active:scale-95 transition-transform"
                       aria-label={`Remove one ${item.name}`}
                     >
                       −
@@ -109,7 +169,7 @@ export function CartDrawer({ open, onClose, restaurant }: CartDrawerProps) {
                     <span className="text-sm font-semibold w-4 text-center">{item.quantity}</span>
                     <button
                       onClick={() => incrementItem(item.productId)}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-white hover:opacity-90 text-sm font-bold"
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-white hover:opacity-90 text-sm font-bold active:scale-95 transition-transform"
                       style={{ backgroundColor: restaurant.primaryColor }}
                       aria-label={`Add one more ${item.name}`}
                     >
@@ -117,7 +177,7 @@ export function CartDrawer({ open, onClose, restaurant }: CartDrawerProps) {
                     </button>
                     <button
                       onClick={() => removeItem(item.productId)}
-                      className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center text-red-400 hover:bg-red-100 ml-1"
+                      className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center text-red-400 hover:bg-red-100 ml-1 active:scale-95 transition-transform"
                       aria-label={`Remove ${item.name}`}
                     >
                       <Trash2 className="w-3 h-3" />
@@ -157,10 +217,15 @@ export function CartDrawer({ open, onClose, restaurant }: CartDrawerProps) {
 
             <Button
               onClick={handleCheckout}
-              className="w-full text-white font-semibold py-3 rounded-xl"
+              disabled={sub < restaurant.minimumOrderAmount}
+              className="w-full text-white font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: restaurant.primaryColor }}
             >
-              Proceed to checkout · {formatPrice(total)}
+              {sub < restaurant.minimumOrderAmount ? (
+                `Minimum order ${formatPrice(restaurant.minimumOrderAmount)}`
+              ) : (
+                `Proceed to checkout · ${formatPrice(total)}`
+              )}
             </Button>
           </div>
         )}

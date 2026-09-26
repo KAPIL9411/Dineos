@@ -5,6 +5,9 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { MenuPageClient } from './menu-page-client'
 import type { CategoryWithProducts, OrderType } from '@/types/domain'
 
+// Enable ISR: Revalidate every 60 seconds for fast menu updates
+export const revalidate = 60
+
 interface MenuPageProps {
   params: Promise<{ slug: string }>
   searchParams: Promise<{ orderType?: string; sessionId?: string }>

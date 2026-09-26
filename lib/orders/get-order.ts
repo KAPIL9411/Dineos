@@ -1,27 +1,14 @@
-/**
- * GET /api/v1/orders/:id
- *
- * Returns order status for customer tracking.
- * Access is gated by the customer_id UUID from the cookie — no auth required.
- * The customer UUID is set as an HttpOnly cookie when the order is placed.
- */
 import { createServiceClient } from '@/lib/supabase/server'
-import { apiSuccess, apiError } from '@/lib/api-response'
 import { cookies } from 'next/headers'
-import type { NextRequest } from 'next/server'
 
-export async function GET(
-  _request: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
-) {
-  const { id: orderId } = await ctx.params
+export async function getOrder(orderId: string) {
   const cookieStore = await cookies()
   const customerIdCookie = cookieStore.get('customer_id')?.value
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = createServiceClient() as any
 
-  const { data: order } = await db
+  const { data: order, error } = await db
     .from('orders')
     .select(`
       id,
@@ -64,20 +51,18 @@ export async function GET(
     .eq('id', orderId)
     .single()
 
-  if (!order) {
-    return apiError('ORDER_NOT_FOUND', 'Order not found', 404)
+  if (error || !order) {
+    return null
   }
 
-  // Gate access: customer must match either via cookie or be the session customer
-  const hasAccess =
-    customerIdCookie && order.customer_id === customerIdCookie
+  // Gate access: customer must match via cookie
+  const hasAccess = customerIdCookie && order.customer_id === customerIdCookie
 
   if (!hasAccess) {
-    // Return minimal info for security — don't leak that the order exists
-    return apiError('ORDER_NOT_FOUND', 'Order not found', 404)
+    return null
   }
 
-  return apiSuccess({
+  return {
     id: order.id,
     orderNumber: order.order_number,
     orderType: order.order_type,
@@ -89,6 +74,7 @@ export async function GET(
     deliveryFee: order.delivery_fee_paisa,
     total: order.total_paisa,
     notes: order.notes,
+    customerId: order.customer_id,
     customerName: order.customer_name,
     customerPhone: order.customer_phone,
     customerEmail: order.customer_email,
@@ -108,10 +94,10 @@ export async function GET(
       unitPrice: item.unit_price_paisa,
       notes: item.notes,
       product: {
-        id: item.product?.id || '',
-        name: item.product?.name || 'Item',
-        imageUrl: item.product?.image_url || null,
+        id: item.product.id,
+        name: item.product.name,
+        imageUrl: item.product.image_url,
       },
     })),
-  })
+  }
 }

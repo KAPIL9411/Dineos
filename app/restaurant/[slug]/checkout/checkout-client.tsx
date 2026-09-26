@@ -64,18 +64,20 @@ export function CheckoutClient({ restaurant }: CheckoutClientProps) {
 
   if (placedOrderId) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 text-center">
-        <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
-        <h1 className="text-xl font-bold text-gray-900 mb-2">Order placed!</h1>
-        <p className="text-sm text-gray-500 mb-6">
-          We&apos;ve received your order. You can track its status below.
+      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex flex-col items-center justify-center px-4 text-center animate-scale-in">
+        <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-6 animate-bounce-subtle">
+          <CheckCircle2 className="w-12 h-12 text-green-600" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Order Placed Successfully!</h1>
+        <p className="text-sm text-gray-600 mb-8 max-w-sm">
+          Your order has been received. Track your order status and get live updates.
         </p>
         <Button
           onClick={() => router.push(`/orders/${placedOrderId}`)}
-          className="w-full max-w-xs"
+          className="w-full max-w-xs py-3 rounded-xl font-semibold shadow-lg transition-transform active:scale-95"
           style={{ backgroundColor: restaurant.primaryColor }}
         >
-          Track my order
+          Track My Order
         </Button>
       </div>
     )
@@ -130,27 +132,30 @@ export function CheckoutClient({ restaurant }: CheckoutClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
+      <header className="sticky top-0 z-20 glass-effect border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm">
         <button
           onClick={() => router.back()}
-          className="p-2 rounded-full hover:bg-gray-100"
+          className="p-2 rounded-full hover:bg-gray-100 transition-colors active:scale-95"
           aria-label="Go back"
         >
           <ArrowLeft className="w-5 h-5 text-gray-700" />
         </button>
-        <h1 className="text-base font-semibold text-gray-900">Checkout</h1>
+        <h1 className="text-lg font-bold text-gray-900">Checkout</h1>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-4 pb-8 space-y-4">
+      <div className="max-w-lg mx-auto px-4 py-6 pb-8 space-y-5">
         {/* Order summary */}
-        <section className="bg-white rounded-2xl p-4">
-          <h2 className="font-semibold text-gray-900 text-sm mb-3 flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4" aria-hidden="true" />
-            Your order
-            <span className="ml-auto text-xs font-normal text-gray-400">
-              {cart.orderType === 'DINE_IN' ? 'Dine-in' : cart.orderType === 'DELIVERY' ? 'Delivery' : 'Takeaway'}
+        <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 animate-slide-up">
+          <h2 className="font-bold text-gray-900 text-base mb-4 flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5" style={{ color: restaurant.primaryColor }} aria-hidden="true" />
+            Your Order
+            <span className="ml-auto text-xs font-medium px-2 py-1 rounded-full" style={{ 
+              backgroundColor: restaurant.primaryColor + '15',
+              color: restaurant.primaryColor
+            }}>
+              {cart.orderType === 'DINE_IN' ? '🍽️ Dine-in' : cart.orderType === 'DELIVERY' ? '🛵 Delivery' : '🥡 Takeaway'}
             </span>
           </h2>
           <ul className="space-y-2.5">

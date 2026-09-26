@@ -1,5 +1,5 @@
 /**
- * Cart Zustand store.
+ * Cart Zustand store with optimistic UI updates.
  *
  * State lives in memory + localStorage for persistence across page navigations.
  * The cart is scoped to ONE restaurant at a time — adding from a different
@@ -12,13 +12,21 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Cart, CartItem, OrderType } from '@/types/domain'
 
+// Haptic feedback helper (works on mobile)
+const vibrate = (pattern: number | number[] = 10) => {
+  if ('vibrate' in navigator) {
+    navigator.vibrate(pattern)
+  }
+}
+
 interface CartStore {
   cart: Cart | null
+  isAnimating: boolean // For smooth animations
 
   // Initialise or update the cart context (called on menu page load)
   initCart: (config: Cart) => void
 
-  // Item operations
+  // Item operations with instant feedback
   addItem: (item: CartItem) => void
   removeItem: (productId: string) => void
   incrementItem: (productId: string) => void
@@ -30,12 +38,18 @@ interface CartStore {
   itemCount: () => number
   subtotal: () => number
   getItemQuantity: (productId: string) => number
+  setAnimating: (value: boolean) => void
 }
 
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       cart: null,
+      isAnimating: false,
+
+      setAnimating(value) {
+        set({ isAnimating: value })
+      },
 
       initCart(config) {
         const existing = get().cart
@@ -60,6 +74,7 @@ export const useCartStore = create<CartStore>()(
       },
 
       addItem(item) {
+        vibrate(10) // Quick haptic feedback
         set((state) => {
           if (!state.cart) return state
           const existing = state.cart.items.find((i) => i.productId === item.productId)
@@ -73,6 +88,7 @@ export const useCartStore = create<CartStore>()(
                     : i
                 ),
               },
+              isAnimating: true,
             }
           }
           return {
@@ -80,11 +96,15 @@ export const useCartStore = create<CartStore>()(
               ...state.cart,
               items: [...state.cart.items, { ...item, quantity: 1 }],
             },
+            isAnimating: true,
           }
         })
+        // Reset animation after 300ms
+        setTimeout(() => set({ isAnimating: false }), 300)
       },
 
       incrementItem(productId) {
+        vibrate(10)
         set((state) => {
           if (!state.cart) return state
           return {
@@ -94,11 +114,14 @@ export const useCartStore = create<CartStore>()(
                 i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i
               ),
             },
+            isAnimating: true,
           }
         })
+        setTimeout(() => set({ isAnimating: false }), 300)
       },
 
       decrementItem(productId) {
+        vibrate(10)
         set((state) => {
           if (!state.cart) return state
           const item = state.cart.items.find((i) => i.productId === productId)
@@ -109,6 +132,7 @@ export const useCartStore = create<CartStore>()(
                 ...state.cart,
                 items: state.cart.items.filter((i) => i.productId !== productId),
               },
+              isAnimating: true,
             }
           }
           return {
@@ -118,11 +142,14 @@ export const useCartStore = create<CartStore>()(
                 i.productId === productId ? { ...i, quantity: i.quantity - 1 } : i
               ),
             },
+            isAnimating: true,
           }
         })
+        setTimeout(() => set({ isAnimating: false }), 300)
       },
 
       removeItem(productId) {
+        vibrate([10, 50, 10]) // Double vibration for delete
         set((state) => {
           if (!state.cart) return state
           return {

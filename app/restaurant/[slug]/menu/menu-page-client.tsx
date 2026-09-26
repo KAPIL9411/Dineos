@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import { ShoppingCart, Leaf, AlertCircle } from 'lucide-react'
 import { formatPrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { useCartStore } from '@/lib/stores/cart-store'
 import { CartDrawer } from '@/components/customer/cart-drawer'
+import { MenuSearchFilter } from '@/components/customer/menu-search-filter'
+import { cn } from '@/lib/utils'
 import type { CategoryWithProducts, Product, OrderType } from '@/types/domain'
 
 interface RestaurantInfo {
@@ -31,9 +33,35 @@ interface MenuPageClientProps {
 export function MenuPageClient({ restaurant, menu, orderType, sessionId }: MenuPageClientProps) {
   const [activeCategory, setActiveCategory] = useState(menu[0]?.id ?? '')
   const [cartOpen, setCartOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'nonveg'>('all')
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({})
   const { cart, initCart, itemCount } = useCartStore()
   const items = cart?.items ?? []
+
+  // Filter menu based on search and veg filter
+  const filteredMenu = useMemo(() => {
+    if (!searchQuery && vegFilter === 'all') return menu
+
+    return menu
+      .map((category) => ({
+        ...category,
+        products: category.products.filter((product) => {
+          // Search filter
+          const matchesSearch = !searchQuery || 
+            product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            product.description?.toLowerCase().includes(searchQuery.toLowerCase())
+
+          // Veg filter
+          const matchesVeg = vegFilter === 'all' || 
+            (vegFilter === 'veg' && product.isVeg) ||
+            (vegFilter === 'nonveg' && !product.isVeg)
+
+          return matchesSearch && matchesVeg
+        }),
+      }))
+      .filter((category) => category.products.length > 0) // Remove empty categories
+  }, [menu, searchQuery, vegFilter])
 
   // Initialise/sync cart with restaurant + order context
   useEffect(() => {
@@ -49,6 +77,8 @@ export function MenuPageClient({ restaurant, menu, orderType, sessionId }: MenuP
 
   // Highlight active category as user scrolls
   useEffect(() => {
+    if (searchQuery || vegFilter !== 'all') return // Skip observer when filtering
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -61,7 +91,7 @@ export function MenuPageClient({ restaurant, menu, orderType, sessionId }: MenuP
     )
     Object.values(categoryRefs.current).forEach((el) => el && observer.observe(el))
     return () => observer.disconnect()
-  }, [menu])
+  }, [menu, searchQuery, vegFilter])
 
   function scrollToCategory(categoryId: string) {
     const el = categoryRefs.current[categoryId]
@@ -71,28 +101,33 @@ export function MenuPageClient({ restaurant, menu, orderType, sessionId }: MenuP
   const totalItems = itemCount()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Sticky header */}
       <header
-        className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm"
+        className="sticky top-0 z-30 glass-effect border-b border-gray-200 shadow-sm"
       >
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide">
-              {orderType === 'DINE_IN' ? 'Dine-in' : orderType === 'DELIVERY' ? 'Delivery' : 'Takeaway'}
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+              {orderType === 'DINE_IN' ? '🍽️ Dine-in' : orderType === 'DELIVERY' ? '🛵 Delivery' : '🥡 Takeaway'}
             </p>
-            <h1 className="text-base font-semibold text-gray-900 leading-tight">{restaurant.name}</h1>
+            <h1 className="text-lg font-bold text-gray-900 leading-tight">{restaurant.name}</h1>
           </div>
 
           <button
             onClick={() => setCartOpen(true)}
-            className="relative flex items-center gap-2 px-3 py-2 rounded-xl text-white text-sm font-medium transition-opacity hover:opacity-90"
+            className="relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg transition-all hover:opacity-90 active:scale-95"
             style={{ backgroundColor: restaurant.primaryColor }}
             aria-label={`View cart — ${totalItems} item${totalItems !== 1 ? 's' : ''}`}
           >
             <ShoppingCart className="w-4 h-4" />
             {totalItems > 0 && (
-              <span className="font-semibold">{totalItems}</span>
+              <>
+                <span className="font-bold">{totalItems}</span>
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center text-xs font-bold shadow-md" style={{ color: restaurant.primaryColor }}>
+                  {totalItems}
+                </span>
+              </>
             )}
             {totalItems === 0 && <span>Cart</span>}
           </button>
@@ -100,23 +135,23 @@ export function MenuPageClient({ restaurant, menu, orderType, sessionId }: MenuP
 
         {/* Restaurant closed banner */}
         {!restaurant.isOpen && (
-          <div className="bg-red-50 border-t border-red-100 px-4 py-2 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-            <p className="text-xs text-red-700">This restaurant is currently closed. You can browse the menu but orders are not accepted.</p>
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-t border-red-200 px-4 py-2.5 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <p className="text-xs text-red-800 font-medium">Restaurant is currently closed. Browse the menu but orders can't be placed right now.</p>
           </div>
         )}
 
         {/* Category nav */}
         <nav className="overflow-x-auto hide-scrollbar" aria-label="Menu categories">
-          <div className="flex gap-1 px-4 pb-2 pt-1 min-w-max">
-            {menu.map((cat) => (
+          <div className="flex gap-2 px-4 pb-3 pt-2 min-w-max">
+            {filteredMenu.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => scrollToCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
                   activeCategory === cat.id
-                    ? 'text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'text-white shadow-md scale-105'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
                 }`}
                 style={activeCategory === cat.id ? { backgroundColor: restaurant.primaryColor } : undefined}
               >
@@ -125,16 +160,42 @@ export function MenuPageClient({ restaurant, menu, orderType, sessionId }: MenuP
             ))}
           </div>
         </nav>
+
+        {/* Search and filters */}
+        <div className="px-4 pb-3">
+          <MenuSearchFilter
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            vegFilter={vegFilter}
+            onVegFilterChange={setVegFilter}
+          />
+        </div>
       </header>
 
       {/* Menu content */}
       <main className="max-w-lg mx-auto px-4 py-4 pb-32">
-        {menu.length === 0 ? (
+        {filteredMenu.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-gray-400 text-sm">Menu not available yet.</p>
+            <p className="text-gray-400 text-sm">
+              {searchQuery || vegFilter !== 'all' 
+                ? 'No items match your search or filter.' 
+                : 'Menu not available yet.'}
+            </p>
+            {(searchQuery || vegFilter !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchQuery('')
+                  setVegFilter('all')
+                }}
+                className="mt-3 text-xs underline"
+                style={{ color: restaurant.primaryColor }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         ) : (
-          menu.map((category) => (
+          filteredMenu.map((category) => (
             <section
               key={category.id}
               id={category.id}
@@ -197,56 +258,70 @@ function ProductCard({ product, primaryColor, isRestaurantOpen }: ProductCardPro
   const unavailable = !product.isAvailable || !isRestaurantOpen
 
   return (
-    <div className={`bg-white rounded-2xl overflow-hidden flex gap-3 p-3 ${unavailable ? 'opacity-60' : ''}`}>
+    <div className={cn(
+      "bg-white rounded-2xl overflow-hidden flex gap-4 p-4 shadow-sm hover:shadow-md transition-all animate-fade-in-up border border-gray-100",
+      unavailable && 'opacity-50'
+    )}>
       {/* Image */}
       {product.imageUrl && (
-        <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0">
+        <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-gray-100 relative group">
           <Image
             src={product.imageUrl}
             alt={product.name}
-            width={80}
-            height={80}
-            className="w-full h-full object-cover"
+            width={96}
+            height={96}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
             loading="lazy"
+            placeholder="blur"
+            blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9Ijk2IiBoZWlnaHQ9Ijk2IiBmaWxsPSIjZjNmNGY2Ii8+PC9zdmc+"
           />
+          {!unavailable && quantity === 0 && (
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+          )}
         </div>
       )}
 
       {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-1.5 mb-0.5">
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex items-start gap-2 mb-1">
           {/* Veg/non-veg indicator */}
           <div
-            className={`mt-0.5 w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center shrink-0 ${
+            className={cn(
+              "mt-0.5 w-4 h-4 rounded-sm border-2 flex items-center justify-center shrink-0",
               product.isVeg ? 'border-green-600' : 'border-red-600'
-            }`}
+            )}
             title={product.isVeg ? 'Vegetarian' : 'Non-vegetarian'}
           >
-            {product.isVeg && <Leaf className="w-2 h-2 text-green-600" />}
+            {product.isVeg && <Leaf className="w-2.5 h-2.5 text-green-600" />}
           </div>
-          <p className="text-sm font-semibold text-gray-900 truncate">{product.name}</p>
+          <h3 className="text-sm font-semibold text-gray-900 leading-snug flex-1">
+            {product.name}
+          </h3>
         </div>
 
         {product.description && (
-          <p className="text-xs text-gray-500 line-clamp-2 mb-2">{product.description}</p>
+          <p className="text-xs text-gray-600 line-clamp-2 mb-2 leading-relaxed">
+            {product.description}
+          </p>
         )}
 
-        <div className="flex items-center justify-between mt-auto">
-          <span className="text-sm font-bold text-gray-900">{formatPrice(product.price)}</span>
+        <div className="flex items-center justify-between mt-auto pt-2">
+          <span className="text-base font-bold text-gray-900">{formatPrice(product.price)}</span>
 
           {/* Add / quantity control */}
           {unavailable ? (
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
-              {!product.isAvailable ? 'Unavailable' : 'Closed'}
+            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
+              {!product.isAvailable ? 'Not Available' : 'Closed'}
             </span>
           ) : quantity === 0 ? (
             <button
               onClick={handleAdd}
-              className="w-8 h-8 rounded-full text-white text-lg font-bold flex items-center justify-center transition-opacity hover:opacity-90 active:scale-95"
+              className="px-4 py-2 rounded-xl text-white text-sm font-bold flex items-center gap-1 shadow-md transition-all hover:shadow-lg active:scale-95"
               style={{ backgroundColor: primaryColor }}
               aria-label={`Add ${product.name} to cart`}
             >
-              +
+              <span>Add</span>
+              <span className="text-lg">+</span>
             </button>
           ) : (
             <QuantityControl
