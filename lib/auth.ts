@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { StaffMember, Restaurant, AuthContext, StaffRole } from '@/types/domain'
@@ -138,15 +139,15 @@ export async function getRestaurantBySlug(slug: string): Promise<Restaurant | nu
 
 /**
  * Resolves the full auth context for a protected route handler.
- * Throws an error string if anything is missing — callers turn these into API errors.
- *
+ * Cached per-request to avoid duplicate database queries.
+ * 
  * Usage inside a route handler:
  *   const ctx = await resolveAuthContext()
  *   if (!ctx.ok) return apiError('UNAUTHORIZED', ctx.error, 401)
  */
-export async function resolveAuthContext(): Promise<
+export const resolveAuthContext = cache(async (): Promise<
   { ok: true; ctx: AuthContext } | { ok: false; error: string }
-> {
+> => {
   const user = await getAuthenticatedUser()
   if (!user) return { ok: false, error: 'Not authenticated' }
 
@@ -157,7 +158,7 @@ export async function resolveAuthContext(): Promise<
   if (!restaurant) return { ok: false, error: 'Restaurant not found' }
 
   return { ok: true, ctx: { userId: user.id, staffMember, restaurant } }
-}
+})
 
 // ─── Authorization ────────────────────────────────────────────────────────────
 
