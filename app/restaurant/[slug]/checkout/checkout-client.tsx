@@ -46,6 +46,7 @@ export function CheckoutClient({ restaurant }: CheckoutClientProps) {
   const { cart, subtotal, clearCart } = useCartStore()
   const [isPending, startTransition] = useTransition()
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   const sub = subtotal()
   const tax = Math.round((sub * restaurant.taxRate) / 10000)
@@ -62,23 +63,71 @@ export function CheckoutClient({ restaurant }: CheckoutClientProps) {
     return null
   }
 
+  // Auto-redirect to tracking page after success animation
+  if (placedOrderId && showSuccess) {
+    setTimeout(() => {
+      router.push(`/orders/${placedOrderId}`)
+    }, 2000) // 2 seconds delay for animation
+  }
+
   if (placedOrderId) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex flex-col items-center justify-center px-4 text-center animate-scale-in">
-        <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-6 animate-bounce-subtle">
-          <CheckCircle2 className="w-12 h-12 text-green-600" />
+      <div className="min-h-screen bg-gradient-to-b from-green-50 via-white to-green-50 flex flex-col items-center justify-center px-4 text-center">
+        {/* Animated Success Icon */}
+        <div className="relative mb-8">
+          {/* Outer ring animation */}
+          <div className="absolute inset-0 w-32 h-32 -m-6 rounded-full bg-green-400/20 animate-ping" />
+          <div className="absolute inset-0 w-28 h-28 -m-4 rounded-full bg-green-400/30 animate-pulse" />
+          
+          {/* Main icon */}
+          <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-2xl animate-scale-in">
+            <CheckCircle2 className="w-12 h-12 text-white animate-bounce-subtle" strokeWidth={2.5} />
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Order Placed Successfully!</h1>
-        <p className="text-sm text-gray-600 mb-8 max-w-sm">
-          Your order has been received. Track your order status and get live updates.
-        </p>
-        <Button
-          onClick={() => router.push(`/orders/${placedOrderId}`)}
-          className="w-full max-w-xs py-3 rounded-xl font-semibold shadow-lg transition-transform active:scale-95"
-          style={{ backgroundColor: restaurant.primaryColor }}
-        >
-          Track My Order
-        </Button>
+
+        {/* Success Message */}
+        <div className="animate-fade-in-up space-y-3 mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Order Placed! 🎉
+          </h1>
+          <p className="text-base text-gray-600 max-w-sm">
+            Your order has been confirmed
+          </p>
+          <div className="inline-block px-4 py-2 rounded-full bg-green-100 border border-green-200">
+            <p className="text-sm font-semibold text-green-700">
+              Order #{placedOrderId.slice(-6).toUpperCase()}
+            </p>
+          </div>
+        </div>
+
+        {/* Loading indicator */}
+        <div className="flex flex-col items-center gap-3 animate-fade-in-up">
+          <div className="flex gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+          <p className="text-sm text-gray-500 font-medium">
+            Taking you to track your order...
+          </p>
+        </div>
+
+        {/* Confetti effect using CSS */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 rounded-full animate-confetti"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `-5%`,
+                backgroundColor: ['#10b981', '#34d399', '#6ee7b7', '#f59e0b', '#fbbf24'][Math.floor(Math.random() * 5)],
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${2 + Math.random() * 2}s`
+              }}
+            />
+          ))}
+        </div>
       </div>
     )
   }
@@ -127,7 +176,15 @@ export function CheckoutClient({ restaurant }: CheckoutClientProps) {
       const { orderId } = json.data
       // Store customer ID association in cookie via the response
       clearCart()
+      
+      // Trigger success animation
       setPlacedOrderId(orderId)
+      setShowSuccess(true)
+      
+      // Vibrate for success feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate([100, 50, 100])
+      }
     })
   }
 

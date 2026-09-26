@@ -253,10 +253,41 @@ export function OrderTrackingClient({ orderId, initialOrder }: OrderTrackingClie
           </h2>
           <p className="text-sm text-gray-700">{config.description}</p>
           
-          {order.estimatedPrepTime && order.status === 'PREPARING' && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-600">Estimated time</p>
-              <p className="text-lg font-bold text-gray-900">{order.estimatedPrepTime} mins</p>
+          {/* Estimated waiting time - Prominent display */}
+          {order.status === 'PENDING' && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Estimated Preparation Time</p>
+                <div className="flex items-center justify-center gap-2">
+                  <Clock className="w-5 h-5 text-orange-600" />
+                  <p className="text-3xl font-bold text-gray-900">25-30</p>
+                  <p className="text-lg text-gray-600 font-medium">mins</p>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">We'll notify you when your order is ready</p>
+              </div>
+            </div>
+          )}
+          
+          {order.estimatedPrepTime && ['ACCEPTED', 'PREPARING'].includes(order.status) && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Time Remaining</p>
+                <div className="flex items-center justify-center gap-2">
+                  <Clock className="w-5 h-5 text-purple-600 animate-pulse" />
+                  <p className="text-3xl font-bold text-gray-900">{order.estimatedPrepTime}</p>
+                  <p className="text-lg text-gray-600 font-medium">mins</p>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Your food is being prepared</p>
+              </div>
+            </div>
+          )}
+
+          {order.status === 'READY' && (
+            <div className="mt-6 pt-6 border-t border-green-200">
+              <div className="bg-white rounded-xl p-4 shadow-sm border-2 border-green-500 animate-pulse-glow">
+                <p className="text-sm font-bold text-green-600 mb-1">🎉 Your Order is Ready!</p>
+                <p className="text-xs text-gray-600">Please collect from the counter</p>
+              </div>
             </div>
           )}
         </div>
