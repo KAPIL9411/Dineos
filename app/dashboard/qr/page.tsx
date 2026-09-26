@@ -57,7 +57,9 @@ export default async function QRPage({ searchParams }: QRPageProps) {
     )
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  // Use NEXT_PUBLIC_APP_URL env variable, or fall back to VERCEL_URL in production
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
   return (
     <div className="p-6">
